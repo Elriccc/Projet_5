@@ -1,0 +1,50 @@
+- name: Openclassrooms P5 EDO deployment
+  hosts: all
+  become: true
+
+  vars:
+    app_path: "app/olympic-games-starter"
+    nginx_conf_path: "nginx/app.conf"
+
+  tasks:
+    - name: Pull nginx image
+      community.docker.docker_image:
+        name: nginx
+        source: pull
+
+    - name: Create nginx web root
+      ansible.builtin.file:
+        path: /opt/nginx/html
+        state: directory
+        mode: '0755'
+
+    - name: Copy nginx config
+      ansible.builtin.copy:
+        src: "{{ nginx_conf_path }}"
+        dest: /opt/nginx/app.conf
+        mode: '0644'
+
+    - name: Copy angular files
+      ansible.builtin.copy:
+        src: "{{ app_path }}/"
+        dest: /opt/nginx/html/
+        mode: '0644'
+      notify: Restart nginx container
+
+    - name: Run nginx container
+      community.docker.docker_container:
+        name: nginx
+        image: nginx
+        state: started
+        ports:
+          - "8080:80"
+        volumes:
+          - /opt/nginx/app.conf:/etc/nginx/conf.d/default.conf:ro
+          - /opt/nginx/html:/var/www/html/olympic-games-starter:ro
+
+  handlers:
+    - name: Restart nginx container
+      community.docker.docker_container:
+        name: nginx
+        state: started
+        restart: true
